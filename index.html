@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0E2A1A">
+<title>Notícias do Futebol</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Chivo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E2A1A;
+    --bg-dark:#081C11;
+    --card:#15351F;
+    --line:rgba(244,241,230,0.12);
+    --cream:#F4F1E6;
+    --gold:#D8B24A;
+    --gold-dim:#8C7530;
+    --muted:#9FB5A6;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Chivo',sans-serif;
+    background:linear-gradient(170deg, var(--bg) 0%, var(--bg-dark) 100%);
+    color:var(--cream);
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+  header{
+    padding:22px 18px 16px;
+    position:sticky; top:0; z-index:10;
+    background:linear-gradient(170deg, var(--bg) 60%, rgba(14,42,26,0.85) 100%);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  h1{
+    font-family:'Bebas Neue',sans-serif;
+    font-weight:400;
+    font-size:30px;
+    letter-spacing:0.03em;
+    margin:0;
+    color:var(--gold);
+    display:flex;align-items:center;gap:10px;
+  }
+  header p.sub{
+    margin:4px 0 0;font-size:12px;color:var(--muted);
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  }
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);display:inline-block;}
+  .dot.live{background:#57C785; box-shadow:0 0 0 0 rgba(87,199,133,0.5); animation:pulse 1.8s infinite;}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(87,199,133,0.5);}
+    70%{box-shadow:0 0 0 8px rgba(87,199,133,0);}
+    100%{box-shadow:0 0 0 0 rgba(87,199,133,0);}
+  }
+  .tabs{display:flex;gap:8px;margin-top:14px;overflow-x:auto;}
+  .tab{
+    flex:0 0 auto;padding:9px 16px;border-radius:20px;
+    background:rgba(244,241,230,0.06);border:1px solid var(--line);
+    font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;
+    cursor:pointer;
+  }
+  .tab.active{background:var(--gold);color:var(--bg-dark);border-color:var(--gold);}
+
+  .wrap{padding:16px;max-width:520px;margin:0 auto;}
+
+  .refresh-btn{
+    display:flex;align-items:center;gap:6px;
+    background:rgba(244,241,230,0.06);border:1px solid var(--line);
+    color:var(--cream);font-size:12px;font-weight:600;
+    padding:8px 14px;border-radius:20px;cursor:pointer;
+    margin:0 16px 14px auto;width:fit-content;
+  }
+  .refresh-btn:active{transform:scale(0.96);}
+  .spin{display:inline-block;animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .card{
+    background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:14px 16px;margin-bottom:12px;
+    display:block;text-decoration:none;color:inherit;
+  }
+  .card:active{opacity:0.8;}
+  .card .src{
+    font-size:10.5px;text-transform:uppercase;letter-spacing:0.08em;
+    color:var(--gold);font-weight:700;margin-bottom:6px;display:block;
+  }
+  .card .title{font-size:15.5px;line-height:1.4;margin:0 0 8px;color:var(--cream);font-weight:600;}
+  .card .time{font-size:11.5px;color:var(--muted);}
+
+  .empty,.error{
+    text-align:center;color:var(--muted);padding:60px 20px;font-size:14px;line-height:1.6;
+  }
+  .error{color:#E8938A;}
+  .skeleton{
+    background:var(--card);border-radius:14px;height:82px;margin-bottom:12px;
+    border:1px solid var(--line);
+    position:relative;overflow:hidden;
+  }
+  .skeleton::after{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(90deg, transparent, rgba(244,241,230,0.06), transparent);
+    animation:shimmer 1.3s infinite;
+  }
+  @keyframes shimmer{
+    0%{transform:translateX(-100%);}
+    100%{transform:translateX(100%);}
+  }
+  footer.credit{text-align:center;color:#4E6455;font-size:11px;margin-top:18px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚽ Notícias do Futebol</h1>
+  <p class="sub">
+    <span><span class="dot live" id="liveDot"></span> atualiza sozinho a cada 3 min</span>
+    <span id="lastUpdate">·</span>
+  </p>
+  <div class="tabs">
+    <div class="tab active" data-tab="brasileirao">Brasileirão</div>
+    <div class="tab" data-tab="cartola">Cartola FC</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <button class="refresh-btn" id="refreshBtn"><span id="refreshIcon">↻</span> Atualizar agora</button>
+  <div id="list"></div>
+</div>
+
+<footer class="credit">Notícias via Google Notícias · toque numa matéria pra abrir</footer>
+
+<script>
+(function(){
+  const QUERIES = {
+    brasileirao: 'Brasileirão Série A OR Campeonato Brasileiro futebol',
+    cartola: '"Cartola FC" escalação OR provável OR desfalques OR pontuação',
+  };
+  const CACHE = { brasileirao: null, cartola: null };
+  let activeTab = 'brasileirao';
+  let refreshing = false;
+  let autoTimer = null;
+
+  const listEl = document.getElementById('list');
+  const lastUpdateEl = document.getElementById('lastUpdate');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const refreshIcon = document.getElementById('refreshIcon');
+
+  function buildFeedUrl(query){
+    const rssUrl = 'https://news.google.com/rss/search?q=' + encodeURIComponent(query) + '&hl=pt-BR&gl=BR&ceid=BR:pt-419';
+    return rssUrl;
+  }
+
+  async function fetchViaProxy(rssUrl){
+    const proxies = [
+      'https://api.allorigins.win/raw?url=' + encodeURIComponent(rssUrl),
+      'https://corsproxy.io/?url=' + encodeURIComponent(rssUrl),
+    ];
+    let lastErr = null;
+    for (const proxyUrl of proxies){
+      try{
+        const res = await fetch(proxyUrl, {cache:'no-store'});
+        if(!res.ok) throw new Error('status ' + res.status);
+        const text = await res.text();
+        if(!text || text.indexOf('<item') === -1) throw new Error('sem itens');
+        return text;
+      }catch(e){
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error('falha ao buscar');
+  }
+
+  function parseRss(xmlText){
+    const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+    const items = Array.from(doc.querySelectorAll('item'));
+    return items.map(function(item){
+      const rawTitle = (item.querySelector('title') && item.querySelector('title').textContent) || '';
+      // Google News costuma vir "Título - Fonte"
+      let title = rawTitle;
+      let source = '';
+      const srcTag = item.querySelector('source');
+      if(srcTag && srcTag.textContent){
+        source = srcTag.textContent;
+      } else {
+        const parts = rawTitle.split(' - ');
+        if(parts.length > 1){ source = parts[parts.length - 1]; title = parts.slice(0, -1).join(' - '); }
+      }
+      const link = (item.querySelector('link') && item.querySelector('link').textContent) || '#';
+      const pubDateRaw = (item.querySelector('pubDate') && item.querySelector('pubDate').textContent) || '';
+      return { title: title.trim(), source: source.trim(), link: link.trim(), pubDate: pubDateRaw };
+    });
+  }
+
+  function timeAgo(pubDateRaw){
+    if(!pubDateRaw) return '';
+    const d = new Date(pubDateRaw);
+    if(isNaN(d.getTime())) return '';
+    const diffMs = Date.now() - d.getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if(mins < 1) return 'agora mesmo';
+    if(mins < 60) return 'há ' + mins + ' min';
+    const hours = Math.floor(mins / 60);
+    if(hours < 24) return 'há ' + hours + 'h';
+    const days = Math.floor(hours / 24);
+    return 'há ' + days + 'd';
+  }
+
+  function escapeHtml(s){
+    return (s || '').replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function renderSkeleton(){
+    listEl.innerHTML = '';
+    for(let i=0;i<5;i++){
+      const sk = document.createElement('div');
+      sk.className = 'skeleton';
+      listEl.appendChild(sk);
+    }
+  }
+
+  function renderItems(items){
+    if(!items || items.length === 0){
+      listEl.innerHTML = '<div class="empty">Nenhuma notícia encontrada agora.<br>Toque em "Atualizar agora" pra tentar de novo.</div>';
+      return;
+    }
+    listEl.innerHTML = items.map(function(i){
+      return '<a class="card" href="' + escapeHtml(i.link) + '" target="_blank" rel="noopener">' +
+        (i.source ? '<span class="src">' + escapeHtml(i.source) + '</span>' : '') +
+        '<p class="title">' + escapeHtml(i.title) + '</p>' +
+        '<span class="time">' + escapeHtml(timeAgo(i.pubDate)) + '</span>' +
+        '</a>';
+    }).join('');
+  }
+
+  function renderError(){
+    listEl.innerHTML = '<div class="error">Não consegui buscar as notícias agora.<br>Verifique a internet e toque em "Atualizar agora".</div>';
+  }
+
+  async function loadTab(tab, forceSkeleton){
+    if(forceSkeleton) renderSkeleton();
+    try{
+      const rssUrl = buildFeedUrl(QUERIES[tab]);
+      const xml = await fetchViaProxy(rssUrl);
+      const items = parseRss(xml).slice(0, 20);
+      CACHE[tab] = items;
+      if(activeTab === tab) renderItems(items);
+      return true;
+    }catch(e){
+      if(activeTab === tab && !CACHE[tab]) renderError();
+      return false;
+    }
+  }
+
+  async function refreshAll(manual){
+    if(refreshing) return;
+    refreshing = true;
+    refreshIcon.classList.add('spin');
+    const ok = await loadTab(activeTab, !CACHE[activeTab]);
+    // atualiza a outra aba em segundo plano também, sem travar a tela
+    const otherTab = activeTab === 'brasileirao' ? 'cartola' : 'brasileirao';
+    loadTab(otherTab, false);
+    refreshIcon.classList.remove('spin');
+    refreshing = false;
+    if(ok || CACHE[activeTab]){
+      const now = new Date();
+      lastUpdateEl.textContent = '· atualizado às ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    }
+  }
+
+  document.querySelectorAll('.tab').forEach(function(tabEl){
+    tabEl.addEventListener('click', function(){
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tabEl.classList.add('active');
+      activeTab = tabEl.dataset.tab;
+      if(CACHE[activeTab]){
+        renderItems(CACHE[activeTab]);
+      } else {
+        loadTab(activeTab, true);
+      }
+    });
+  });
+
+  refreshBtn.addEventListener('click', function(){ refreshAll(true); });
+
+  function startAutoRefresh(){
+    if(autoTimer) clearInterval(autoTimer);
+    autoTimer = setInterval(function(){ refreshAll(false); }, 3 * 60 * 1000);
+  }
+
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible'){
+      refreshAll(false);
+    }
+  });
+
+  // primeira carga
+  renderSkeleton();
+  refreshAll(true);
+  startAutoRefresh();
+})();
+</script>
+</body>
+</html>
