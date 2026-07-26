@@ -155,6 +155,39 @@
     return rssUrl;
   }
 
+  function splitTitleSource(rawTitle){
+    let title = rawTitle || '';
+    let source = '';
+    const parts = title.split(' - ');
+    if(parts.length > 1){ source = parts[parts.length - 1]; title = parts.slice(0, -1).join(' - '); }
+    return { title: title.trim(), source: source.trim() };
+  }
+
+  async function fetchWithTimeout(url, ms, opts){
+    const controller = new AbortController();
+    const timeoutId = setTimeout(function(){ controller.abort(); }, ms || 9000);
+    try{
+      const res = await fetch(url, Object.assign({cache:'no-store', signal: controller.signal}, opts || {}));
+      return res;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async function fetchViaRss2Json(rssUrl){
+    const url = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl);
+    const res = await fetchWithTimeout(url, 8000);
+    if(!res.ok) throw new Error('rss2json status ' + res.status);
+    const data = await res.json();
+    if(!data || data.status !== 'ok' || !Array.isArray(data.items) || !data.items.length){
+      throw new Error('rss2json sem itens');
+    }
+    return data.items.map(function(it){
+      const ts = splitTitleSource(it.title);
+      return { title: ts.title, source: ts.source, link: it.link || '#', pubDate: it.pubDate || '' };
+    });
+  }
+
   async function fetchViaProxy(rssUrl){
     const proxies = [
       'https://api.allorigins.win/raw?url=' + encodeURIComponent(rssUrl),
@@ -165,10 +198,7 @@
     let lastErr = null;
     for (const proxyUrl of proxies){
       try{
-        const controller = new AbortController();
-        const timeoutId = setTimeout(function(){ controller.abort(); }, 9000);
-        const res = await fetch(proxyUrl, {cache:'no-store', signal: controller.signal});
-        clearTimeout(timeoutId);
+        const res = await fetchWithTimeout(proxyUrl, 6000);
         if(!res.ok) throw new Error('status ' + res.status);
         const text = await res.text();
         if(!text || text.indexOf('<item') === -1) throw new Error('sem itens');
@@ -180,24 +210,31 @@
     throw lastErr || new Error('falha ao buscar');
   }
 
+  async function fetchNews(query){
+    const rssUrl = buildFeedUrl(query);
+    try{
+      return await fetchViaRss2Json(rssUrl);
+    }catch(e){
+      const xml = await fetchViaProxy(rssUrl);
+      return parseRss(xml);
+    }
+  }
+
   function parseRss(xmlText){
     const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
     const items = Array.from(doc.querySelectorAll('item'));
     return items.map(function(item){
       const rawTitle = (item.querySelector('title') && item.querySelector('title').textContent) || '';
-      // Google News costuma vir "Título - Fonte"
-      let title = rawTitle;
-      let source = '';
       const srcTag = item.querySelector('source');
+      let ts;
       if(srcTag && srcTag.textContent){
-        source = srcTag.textContent;
+        ts = { title: rawTitle.trim(), source: srcTag.textContent.trim() };
       } else {
-        const parts = rawTitle.split(' - ');
-        if(parts.length > 1){ source = parts[parts.length - 1]; title = parts.slice(0, -1).join(' - '); }
+        ts = splitTitleSource(rawTitle);
       }
       const link = (item.querySelector('link') && item.querySelector('link').textContent) || '#';
       const pubDateRaw = (item.querySelector('pubDate') && item.querySelector('pubDate').textContent) || '';
-      return { title: title.trim(), source: source.trim(), link: link.trim(), pubDate: pubDateRaw };
+      return { title: ts.title, source: ts.source, link: link.trim(), pubDate: pubDateRaw };
     });
   }
 
@@ -251,9 +288,7 @@
   async function loadTab(tab, forceSkeleton){
     if(forceSkeleton) renderSkeleton();
     try{
-      const rssUrl = buildFeedUrl(QUERIES[tab]);
-      const xml = await fetchViaProxy(rssUrl);
-      const items = parseRss(xml).slice(0, 20);
+      const items = (await fetchNews(QUERIES[tab])).slice(0, 20);
       CACHE[tab] = items;
       if(activeTab === tab) renderItems(items);
       return true;
